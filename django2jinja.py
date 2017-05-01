@@ -636,13 +636,17 @@ def width_ratio(writer, node):
 
 @node(core_tags.WithNode)
 def with_block(writer, node):
-    writer.warn('with block expanded into set statement.  This could cause '
-                'variables following that block to be overridden.', node)
     writer.start_block()
-    writer.write('set %s = ' % node.name)
-    writer.node(node.var)
+    writer.write('with ')
+    for x, (key, value) in enumerate(node.extra_context.items()):
+        if x:
+            writer.write(', ')
+        writer.write(key)
+        writer.write('=')
+        writer.node(value)
     writer.end_block()
     writer.body(node.nodelist)
+    writer.tag('endwith')
 
 
 @node(core_tags.RegroupNode)
