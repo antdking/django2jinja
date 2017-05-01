@@ -512,10 +512,7 @@ def extends(writer, node):
 def include(writer, node):
     writer.start_block()
     writer.write('include ')
-    if hasattr(node, 'template'):
-        writer.literal(node.template.name)
-    else:
-        writer.node(node.template_name)
+    writer.node(node.template)
     writer.end_block()
 
 
