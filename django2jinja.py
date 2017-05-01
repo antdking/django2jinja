@@ -438,9 +438,9 @@ def _if_condition_to_bits_backwards(condition):
         yield from _if_condition_to_bits_backwards(condition.second)
     if isinstance(condition, OPERATORS['not']):  # prefix
         yield from _if_condition_to_bits_backwards(condition.first)
-        yield condition.id
+        yield condition
     else:
-        yield condition.id
+        yield condition
         yield from _if_condition_to_bits_backwards(condition.first)
 
 
@@ -464,11 +464,16 @@ def if_condition(writer, node):
         if condition:
             condition_bits = if_condition_to_bits(condition)
             for bit in condition_bits:
-                writer.write(bit)
+                writer.node(bit)
                 writer.write(' ')
         writer.end_block()
         writer.body(nodelist)
     writer.tag('endif')
+
+
+@node('Operator')
+def operator(writer, node):
+    writer.write(node.id)
 
 
 @node(core_tags.IfEqualNode)
