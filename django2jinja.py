@@ -423,6 +423,9 @@ def for_loop(writer, node):
     writer.enter_loop()
     writer.body(node.nodelist_loop)
     writer.leave_loop()
+    if node.nodelist_empty:
+        writer.tag('else')
+        writer.body(node.nodelist_empty)
     writer.tag('endfor')
 
 
