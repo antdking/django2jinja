@@ -84,6 +84,7 @@ from django.templatetags import i18n as i18n_tags
 
 _node_handlers = {}
 _resolved_filters = {}
+_resolved_simple_tags = None
 _newline_re = re.compile(r'(?:\r\n|\r|\n)')
 
 # Django stores an itertools object on the cycle node.  Not only is this
@@ -334,11 +335,30 @@ class Writer(object):
         """
         if filter not in _resolved_filters:
             # assume the first is the one we want to use
-            libraries = engines.all()[0].engine.libraries
+            libraries = engines.all()[0].engine.template_libraries
             for library in libraries.values():
                 for key, value in library.filters.items():
                     _resolved_filters[value] = key
         return _resolved_filters.get(filter, None)
+
+    def get_simple_tag_name(self, tag):
+        global _resolved_simple_tags
+        from django.template.library import SimpleNode, InclusionNode
+        if not isinstance(tag, (SimpleNode, InclusionNode)):
+            self.warn("Can't get tag name from an unknown tag type", node=node)
+            return
+
+        target_func = tag.func
+        target_name = '.'.join((target_func.__module__, target_func.__name__))
+
+        if _resolved_simple_tags is None:
+            _resolved_simple_tags = {}
+            libraries = engines.all()[0].engine.template_libraries
+            for library in libraries.values():
+                for func_name, func in library.tags.items():
+                    _resolved_simple_tags['.'.join((func.__module__, func.__name__))] = func_name
+
+        return _resolved_simple_tags.get(target_name)
 
     def node(self, node):
         """Invokes the node handler for a node."""
@@ -760,7 +780,7 @@ def translate_block(writer, node):
 @node("SimpleNode")
 def simple_tag(writer, node):
     """Check if the simple tag exist as a filter in """
-    name = node.tag_name
+    name = writer.get_simple_tag_name(node)
     if writer.env and \
                     name not in writer.env.filters and \
                     name not in writer._filters_warned:
