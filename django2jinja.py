@@ -68,17 +68,19 @@
     :copyright: (c) 2009 by the Jinja Team.
     :license: BSD.
 """
+from __future__ import print_function
+
 import re
 import os
 import sys
 from jinja2.defaults import *
 from django.conf import settings
-from django.template import defaulttags as core_tags, loader, TextNode, \
-    FilterExpression, libraries, Variable, loader_tags, TOKEN_TEXT, \
-    TOKEN_VAR
-from django.template.debug import DebugVariableNode as VariableNode
+from django.template import defaulttags as core_tags, loader, loader_tags, engines
+from django.template.base import (
+    TextNode, FilterExpression, Variable, TOKEN_TEXT, TOKEN_VAR, VariableNode
+)
 from django.templatetags import i18n as i18n_tags
-from StringIO import StringIO
+
 
 _node_handlers = {}
 _resolved_filters = {}
@@ -91,9 +93,9 @@ _newline_re = re.compile(r'(?:\r\n|\r|\n)')
 _old_cycle_init = core_tags.CycleNode.__init__
 
 
-def _fixed_cycle_init(self, cyclevars, variable_name=None):
+def _fixed_cycle_init(self, cyclevars, variable_name=None, silent=False):
     self.raw_cycle_vars = map(Variable, cyclevars)
-    _old_cycle_init(self, cyclevars, variable_name)
+    _old_cycle_init(self, cyclevars, variable_name, silent)
 
 
 core_tags.CycleNode.__init__ = _fixed_cycle_init
@@ -131,7 +133,7 @@ def convert_templates(output_dir, extensions=('.html', '.txt'), writer=None,
 
     if callback is None:
         def callback(template):
-            print
+            print()
             template
 
     for directory in settings.TEMPLATE_DIRS:
@@ -144,7 +146,7 @@ def convert_templates(output_dir, extensions=('.html', '.txt'), writer=None,
                 if not os.path.exists(basetarget):
                     os.makedirs(basetarget)
                 callback(source)
-                f = file(target, 'w')
+                f = open(target, 'w')
                 try:
                     translate(f, source)
                 finally:
@@ -164,7 +166,7 @@ class Writer(object):
                  initial_autoescape=True,
                  use_jinja_autoescape=False,
                  custom_node_handlers=None,
-                 var_re=[],
+                 var_re=None,
                  env=None):
         if stream is None:
             stream = sys.stdout
@@ -185,7 +187,7 @@ class Writer(object):
                                   **(custom_node_handlers or {}))
         self._loop_depth = 0
         self._filters_warned = set()
-        self.var_re = var_re
+        self.var_re = var_re or []
         self.env = env
 
     def enter_loop(self):
@@ -312,7 +314,7 @@ class Writer(object):
         if node is not None and hasattr(node, 'source'):
             filename, lineno = self.get_location(*node.source)
             message = '[%s:%d] %s' % (filename, lineno, message)
-        print >> self.error_stream, message
+        print(message, file=self.error_stream)
 
     def translate_variable_name(self, var):
         """Performs variable name translation."""
@@ -331,14 +333,16 @@ class Writer(object):
         is no such filter.
         """
         if filter not in _resolved_filters:
+            # assume the first is the one we want to use
+            libraries = engines.all()[0].engine.libraries
             for library in libraries.values():
-                for key, value in library.filters.iteritems():
+                for key, value in library.filters.items():
                     _resolved_filters[value] = key
         return _resolved_filters.get(filter, None)
 
     def node(self, node):
         """Invokes the node handler for a node."""
-        for cls, handler in self.node_handlers.iteritems():
+        for cls, handler in self.node_handlers.items():
             if type(node) is cls or type(node).__name__ == cls:
                 handler(self, node)
                 break
@@ -484,7 +488,6 @@ def extends(writer, node):
     writer.body(node.nodelist)
 
 
-@node(loader_tags.ConstantIncludeNode)
 @node(loader_tags.IncludeNode)
 def include(writer, node):
     writer.start_block()
