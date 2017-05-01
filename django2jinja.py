@@ -604,9 +604,8 @@ def url_tag(writer, node):
         writer.write('set %s = ' % node.asvar)
     else:
         writer.start_variable()
-    autoescape = writer.autoescape
     writer.write('url(')
-    writer.literal(node.view_name)
+    writer.node(node.view_name)
     for arg in node.args:
         writer.write(', ')
         writer.node(arg)
