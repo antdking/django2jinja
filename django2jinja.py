@@ -426,25 +426,45 @@ def for_loop(writer, node):
     writer.tag('endfor')
 
 
+def _if_condition_to_bits_backwards(condition):
+    from django.template.smartif import Literal, OPERATORS
+    if isinstance(condition, Literal):
+        yield condition.value
+        return
+    if condition.second:
+        yield from _if_condition_to_bits_backwards(condition.second)
+    if isinstance(condition, OPERATORS['not']):  # prefix
+        yield from _if_condition_to_bits_backwards(condition.first)
+        yield condition.id
+    else:
+        yield condition.id
+        yield from _if_condition_to_bits_backwards(condition.first)
+
+
+def if_condition_to_bits(condition):
+    backward_bits = list(_if_condition_to_bits_backwards(condition))
+    backward_bits.reverse()
+    return backward_bits
+
+
 @node(core_tags.IfNode)
 def if_condition(writer, node):
-    writer.start_block()
-    writer.write('if ')
-    join_with = 'and'
-    if node.link_type == core_tags.IfNode.LinkTypes.or_:
-        join_with = 'or'
+    for x, (condition, nodelist) in enumerate(node.conditions_nodelists):
+        writer.start_block()
+        if x == 0:
+            writer.write('if ')
+        elif condition is None:
+            writer.write('else ')
+        else:
+            writer.write('elif ')
 
-    for idx, (ifnot, expr) in enumerate(node.bool_exprs):
-        if idx:
-            writer.write(' %s ' % join_with)
-        if ifnot:
-            writer.write('not ')
-        writer.node(expr)
-    writer.end_block()
-    writer.body(node.nodelist_true)
-    if node.nodelist_false:
-        writer.tag('else')
-        writer.body(node.nodelist_false)
+        if condition:
+            condition_bits = if_condition_to_bits(condition)
+            for bit in condition_bits:
+                writer.write(bit)
+                writer.write(' ')
+        writer.end_block()
+        writer.body(nodelist)
     writer.tag('endif')
 
 
