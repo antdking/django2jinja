@@ -503,7 +503,7 @@ def block(writer, node):
 def extends(writer, node):
     writer.start_block()
     writer.write('extends ')
-    writer.write(node.parent_name)
+    writer.node(node.parent_name)
     writer.end_block()
     writer.body(node.nodelist)
 
