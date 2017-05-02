@@ -188,6 +188,7 @@ class Writer(object):
                                   **(custom_node_handlers or {}))
         self._loop_depth = 0
         self._filters_warned = set()
+        self._globals_warned = set()
         self.var_re = var_re or []
         self.env = env
 
@@ -781,42 +782,40 @@ def translate_block(writer, node):
 def simple_tag(writer, node):
     """Check if the simple tag exist as a filter in """
     name = writer.get_simple_tag_name(node)
-    if writer.env and \
-                    name not in writer.env.filters and \
-                    name not in writer._filters_warned:
-        writer._filters_warned.add(name)
-        writer.warn('Filter %s probably doesn\'t exist in Jinja' %
-                    name)
+    if (
+        writer.env
+        and name not in writer.env.globals
+        and name not in writer._globals_warned
+    ):
+        writer._globals_warned.add(name)
+        writer.warn('Tag %s probably doesn\'t exist in Jinja' % name)
 
-    if not node.vars_to_resolve:
-        # No argument, pass the request
+    if node.target_var:
+        writer.start_block()
+        writer.write('set %s=%s' % (node.target_var, name))
+    else:
         writer.start_variable()
-        writer.write('request|')
         writer.write(name)
-        writer.end_variable()
-        return
-
-    first_var = node.vars_to_resolve[0]
-    args = node.vars_to_resolve[1:]
-    writer.start_variable()
-
-    # Copied from Writer.filters()
-    writer.node(first_var)
-
-    writer.write('|')
-    writer.write(name)
-    if args:
-        writer.write('(')
-        for idx, var in enumerate(args):
+    writer.write('(')
+    has_args = False
+    if node.args:
+        has_args = True
+        for idx, var in enumerate(node.args):
             if idx:
                 writer.write(', ')
-            if var.var:
-                writer.node(var)
-            else:
-                writer.literal(var.literal)
-        writer.write(')')
-    writer.end_variable()
+            writer.node(var)
 
+    if node.kwargs:
+        for idx, (key, val) in enumerate(node.kwargs.items()):
+            if has_args or idx:
+                writer.write(', ')
+            writer.write('%s=' % key)
+            writer.node(val)
+    writer.writer(')')
+    if node.target_var:
+        writer.end_block()
+    else:
+        writer.end_variable()
 
 # get rid of node now, it shouldn't be used normally
 del node
