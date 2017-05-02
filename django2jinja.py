@@ -817,5 +817,38 @@ def simple_tag(writer, node):
     else:
         writer.end_variable()
 
+
+@node("InclusionNode")
+def inclusion_tag(writer, node):
+    name = writer.get_simple_tag_name(node)
+    if (
+         writer.env
+         and name not in writer.env.globals
+         and name not in writer._globals_warned
+    ):
+        writer._globals_warned.add(name)
+        writer.warn('Tag %s probably doesn\'t exist in Jinja' % name)
+
+    writer.start_variable()
+    writer.write(name)
+    writer.write('(')
+    has_args = False
+    if node.args:
+        has_args = True
+        for idx, var in enumerate(node.args):
+            if idx:
+                writer.write(', ')
+            writer.node(var)
+
+    if node.kwargs:
+        for idx, (key, val) in enumerate(node.kwargs.items()):
+            if has_args or idx:
+                writer.write(', ')
+            writer.write('%s=' % key)
+            writer.node(val)
+    writer.writer(')')
+    writer.end_variable()
+
+
 # get rid of node now, it shouldn't be used normally
 del node
