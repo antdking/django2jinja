@@ -335,7 +335,7 @@ class Writer(object):
         """
         if filter not in _resolved_filters:
             # assume the first is the one we want to use
-            libraries = engines.all()[0].engine.template_libraries
+            libraries = engines['django'].engine.template_libraries
             for library in libraries.values():
                 for key, value in library.filters.items():
                     _resolved_filters[value] = key
@@ -353,7 +353,7 @@ class Writer(object):
 
         if _resolved_simple_tags is None:
             _resolved_simple_tags = {}
-            libraries = engines.all()[0].engine.template_libraries
+            libraries = engines['django'].engine.template_libraries
             for library in libraries.values():
                 for func_name, func in library.tags.items():
                     _resolved_simple_tags['.'.join((func.__module__, func.__name__))] = func_name
