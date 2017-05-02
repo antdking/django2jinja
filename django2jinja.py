@@ -73,6 +73,11 @@ from __future__ import print_function
 import re
 import os
 import sys
+
+from django.template.defaulttags import CsrfTokenNode
+from django.templatetags.static import StaticNode
+from django.utils.encoding import force_text
+from django.utils.safestring import SafeData
 from jinja2.defaults import *
 from django.conf import settings
 from django.template import defaulttags as core_tags, loader, loader_tags, engines
@@ -129,7 +134,7 @@ def convert_templates(output_dir, extensions=('.html', '.txt'), writer=None,
         template = loader.get_template(loadname)
         original = writer.stream
         writer.stream = f
-        writer.body(template.nodelist)
+        writer.body(template.template.nodelist)
         writer.stream = original
 
     if callback is None:
@@ -139,7 +144,7 @@ def convert_templates(output_dir, extensions=('.html', '.txt'), writer=None,
 
     for directory in settings.TEMPLATE_DIRS:
         for dirname, _, files in os.walk(directory):
-            dirname = dirname[len(directory) + 1:]
+            dirname = dirname[len(directory):].lstrip('/')
             for filename in filter_templates(files):
                 source = os.path.normpath(os.path.join(dirname, filename))
                 target = os.path.join(output_dir, dirname, filename)
@@ -209,7 +214,7 @@ class Writer(object):
 
     def write(self, s):
         """Writes stuff to the stream."""
-        self.stream.write(s.encode(settings.FILE_CHARSET))
+        self.stream.write(force_text(s))
 
     def print_expr(self, expr):
         """Open a variable tag, write to the string to the stream and close."""
@@ -410,7 +415,10 @@ def variable_node(writer, node):
 
 @node(FilterExpression)
 def filter_expression(writer, node):
-    writer.node(node.var)
+    if isinstance(node.var, SafeData):
+        writer.literal(node.var)
+    else:
+        writer.node(node.var)
     writer.filters(node.filters)
 
 
@@ -811,7 +819,7 @@ def simple_tag(writer, node):
                 writer.write(', ')
             writer.write('%s=' % key)
             writer.node(val)
-    writer.writer(')')
+    writer.write(')')
     if node.target_var:
         writer.end_block()
     else:
@@ -846,7 +854,30 @@ def inclusion_tag(writer, node):
                 writer.write(', ')
             writer.write('%s=' % key)
             writer.node(val)
-    writer.writer(')')
+    writer.write(')')
+    writer.end_variable()
+
+
+@node(StaticNode)
+def static_tag(writer: Writer, node: StaticNode):
+    if node.varname:
+        writer.start_block()
+        writer.write('set %s=static(' % node.varname)
+    else:
+        writer.start_variable()
+        writer.write('static(')
+    writer.node(node.path)
+    writer.write(')')
+    if node.varname:
+        writer.end_block()
+    else:
+        writer.end_variable()
+
+
+@node(CsrfTokenNode)
+def csrf_tag(writer: Writer, node: CsrfTokenNode):
+    writer.start_variable()
+    writer.write('csrf_token()')
     writer.end_variable()
 
 
