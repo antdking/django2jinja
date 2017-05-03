@@ -88,7 +88,6 @@ from django.templatetags import i18n as i18n_tags
 
 
 _node_handlers = {}
-_resolved_filters = {}
 _resolved_simple_tags = None
 _newline_re = re.compile(r'(?:\r\n|\r|\n)')
 
@@ -339,13 +338,7 @@ class Writer(object):
         """Returns the filter name for a filter function or `None` if there
         is no such filter.
         """
-        if filter not in _resolved_filters:
-            # assume the first is the one we want to use
-            libraries = engines['django'].engine.template_libraries
-            for library in libraries.values():
-                for key, value in library.filters.items():
-                    _resolved_filters[value] = key
-        return _resolved_filters.get(filter, None)
+        return getattr(filter, 'filter_name', None)
 
     def get_simple_tag_name(self, tag):
         global _resolved_simple_tags
