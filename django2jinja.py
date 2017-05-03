@@ -878,7 +878,7 @@ def csrf_tag(writer: Writer, node: CsrfTokenNode):
 def verbatim_tag(writer: Writer, node: VerbatimNode):
     writer.tag('raw')
     writer.write(node.content)
-    writer.endtag('endraw')
+    writer.tag('endraw')
 
 
 @node(LoremNode)
