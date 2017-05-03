@@ -138,7 +138,7 @@ def convert_templates(output_dir, extensions=('.html', '.txt'), writer=None,
 
     if callback is None:
         def callback(template):
-            pass
+            print(template)
 
     for directory in settings.TEMPLATE_DIRS:
         for dirname, _, files in os.walk(directory):
@@ -190,8 +190,6 @@ class Writer(object):
         self.node_handlers = dict(_node_handlers,
                                   **(custom_node_handlers or {}))
         self._loop_depth = 0
-        self._filters_warned = set()
-        self._globals_warned = set()
         self.var_re = var_re or []
         self.env = env
 
@@ -280,9 +278,7 @@ class Writer(object):
             if name is None:
                 self.warn('Could not find filter %s' % name)
                 continue
-            if name not in DEFAULT_FILTERS and \
-                            name not in self._filters_warned:
-                self._filters_warned.add(name)
+            if name not in self.env.filters:
                 self.warn('Filter %s probably doesn\'t exist in Jinja' %
                           name)
             if not want_pipe:
@@ -786,9 +782,8 @@ def simple_tag(writer, node):
     if (
         writer.env
         and name not in writer.env.globals
-        and name not in writer._globals_warned
+        and name not in writer.env.filters
     ):
-        writer._globals_warned.add(name)
         writer.warn('Tag %s probably doesn\'t exist in Jinja' % name)
 
     if node.target_var:
@@ -825,9 +820,8 @@ def inclusion_tag(writer, node):
     if (
          writer.env
          and name not in writer.env.globals
-         and name not in writer._globals_warned
+         and name not in writer.env.filters
     ):
-        writer._globals_warned.add(name)
         writer.warn('Tag %s probably doesn\'t exist in Jinja' % name)
 
     writer.start_variable()
