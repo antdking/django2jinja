@@ -74,7 +74,7 @@ import re
 import os
 import sys
 
-from django.template.defaulttags import CsrfTokenNode
+from django.template.defaulttags import CsrfTokenNode, VerbatimNode, LoremNode
 from django.templatetags.static import StaticNode
 from django.utils.encoding import force_text
 from django.utils.safestring import SafeData
@@ -138,8 +138,7 @@ def convert_templates(output_dir, extensions=('.html', '.txt'), writer=None,
 
     if callback is None:
         def callback(template):
-            print()
-            template
+            pass
 
     for directory in settings.TEMPLATE_DIRS:
         for dirname, _, files in os.walk(directory):
@@ -338,7 +337,7 @@ class Writer(object):
         """Returns the filter name for a filter function or `None` if there
         is no such filter.
         """
-        return getattr(filter, 'filter_name', None)
+        return getattr(filter, '_filter_name', None)
 
     def get_simple_tag_name(self, tag):
         global _resolved_simple_tags
@@ -477,17 +476,17 @@ def if_condition(writer, node):
     for x, (condition, nodelist) in enumerate(node.conditions_nodelists):
         writer.start_block()
         if x == 0:
-            writer.write('if ')
+            writer.write('if')
         elif condition is None:
-            writer.write('else ')
+            writer.write('else')
         else:
-            writer.write('elif ')
+            writer.write('elif')
 
         if condition:
             condition_bits = if_condition_to_bits(condition)
             for bit in condition_bits:
-                writer.node(bit)
                 writer.write(' ')
+                writer.node(bit)
         writer.end_block()
         writer.body(nodelist)
     writer.tag('endif')
@@ -619,8 +618,8 @@ def template_tag(writer, node):
 
 @node(core_tags.URLNode)
 def url_tag(writer, node):
-    writer.warn('url node used.  make sure to provide a proper url() '
-                'function', node)
+    #writer.warn('url node used.  make sure to provide a proper url() '
+    #            'function', node)
     if node.asvar:
         writer.start_block()
         writer.write('set %s = ' % node.asvar)
@@ -692,7 +691,8 @@ def regroup(writer, node):
 
 @node(core_tags.LoadNode)
 def warn_load(writer, node):
-    writer.warn('load statement used which was ignored on conversion', node)
+    #writer.warn('load statement used which was ignored on conversion', node)
+    pass
 
 
 @node(i18n_tags.GetAvailableLanguagesNode)
@@ -871,6 +871,36 @@ def static_tag(writer: Writer, node: StaticNode):
 def csrf_tag(writer: Writer, node: CsrfTokenNode):
     writer.start_variable()
     writer.write('csrf_token()')
+    writer.end_variable()
+
+
+@node(VerbatimNode)
+def verbatim_tag(writer: Writer, node: VerbatimNode):
+    writer.tag('raw')
+    writer.write(node.content)
+    writer.endtag('endraw')
+
+
+@node(LoremNode)
+def lorem_tag(writer: Writer, node: LoremNode):
+    method, count = node.method, node.count
+    uses_html = method == 'p'
+    if method == 'w':
+        min_max = count
+        count = 1
+    else:
+        min_max = None
+
+    writer.start_variable()
+    func_string = 'lipsum(n={count}, html={uses_html}'
+    if min_max:
+        func_string += ', min={min_max}, max={min_max}'
+    func_string += ')'
+    writer.write(func_string.format(
+        count=count,
+        uses_html=str(uses_html),
+        min_max=min_max,
+    ))
     writer.end_variable()
 
 
